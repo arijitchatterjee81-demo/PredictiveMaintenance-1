@@ -225,16 +225,23 @@ with tab4:
         st.subheader("Phase 2: Heuristic-Guided State Navigation")
         
         # Problem definition
+        st.info("💡 **Navigation Logic**: Select a degraded initial state (e.g., high Health_Level) and a better goal state (e.g., low Health_Level or Failure state for replacement)")
+        
         col1, col2 = st.columns(2)
         with col1:
+            # Default to a worse state (higher degradation)
+            default_start_idx = len(st.session_state.framework.state_space.states) - 2 if len(st.session_state.framework.state_space.states) > 1 else 0
             start_state = st.selectbox(
                 "Initial State", 
-                st.session_state.framework.state_space.states
+                st.session_state.framework.state_space.states,
+                index=default_start_idx
             )
         with col2:
+            # Default to a better state (lower degradation) 
             goal_state = st.selectbox(
                 "Goal State", 
-                st.session_state.framework.state_space.states
+                st.session_state.framework.state_space.states,
+                index=0
             )
         
         # Algorithm parameters
