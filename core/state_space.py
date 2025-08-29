@@ -28,19 +28,20 @@ class StateSpace:
         self.actions = actions
         self.transition_matrix = self._build_transition_matrix()
     
-    def _build_transition_matrix(self) -> Dict[tuple, str]:
+    def _build_transition_matrix(self) -> Dict[str, str]:
         """
         Build state transition matrix defining δ(s,a) for all valid (s,a) pairs.
         
         Returns:
-            Dictionary mapping (state, action) tuples to resulting states
+            Dictionary mapping "state|action" strings to resulting states
         """
         transitions = {}
         
         for state in self.states:
             for action in self.actions:
                 next_state = self._calculate_transition(state, action)
-                transitions[(state, action)] = next_state
+                key = f"{state}|{action}"
+                transitions[key] = next_state
         
         return transitions
     
@@ -107,7 +108,8 @@ class StateSpace:
         if state not in self.states or action not in self.actions:
             return None
         
-        return self.transition_matrix.get((state, action))
+        key = f"{state}|{action}"
+        return self.transition_matrix.get(key)
     
     def get_valid_actions(self, state: str) -> List[str]:
         """
