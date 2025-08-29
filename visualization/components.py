@@ -209,11 +209,13 @@ class VisualizationComponents:
         )
         
         # Update layout
+        layout_defaults = self.layout_defaults.copy()
+        layout_defaults['height'] = 600
+        
         fig.update_layout(
             title="CBR+STM Solution Path Analysis",
-            height=600,
             showlegend=False,
-            **self.layout_defaults
+            **layout_defaults
         )
         
         # Update axes labels
@@ -613,11 +615,13 @@ class VisualizationComponents:
             textinfo='label+percent'
         ), row=2, col=2)
         
+        layout_defaults = self.layout_defaults.copy()
+        layout_defaults['height'] = 600
+        
         fig.update_layout(
             title="CBR+STM Framework Dashboard",
-            height=600,
             showlegend=False,
-            **self.layout_defaults
+            **layout_defaults
         )
         
         return fig
