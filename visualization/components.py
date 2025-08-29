@@ -106,10 +106,12 @@ class VisualizationComponents:
                     row=row, col=col
                 )
         
+        layout_defaults = self.layout_defaults.copy()
+        layout_defaults['height'] = 300 * rows
+        
         fig.update_layout(
             title="Sensor Data Trends",
-            height=300 * rows,
-            **self.layout_defaults
+            **layout_defaults
         )
         
         return fig
