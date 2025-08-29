@@ -284,11 +284,12 @@ with tab4:
                     st.subheader("Cost Breakdown Analysis")
                     cost_breakdown = result['cost_breakdown']
                     
+                    total_cost = sum(cost_breakdown.values())
                     breakdown_df = pd.DataFrame([
                         {
                             'Component': comp,
                             'Cost': cost,
-                            'Percentage': f"{(cost/sum(cost_breakdown.values()))*100:.1f}%"
+                            'Percentage': f"{(cost/total_cost)*100:.1f}%" if total_cost > 0 else "0.0%"
                         }
                         for comp, cost in cost_breakdown.items()
                     ])
