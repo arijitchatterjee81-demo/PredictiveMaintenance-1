@@ -117,13 +117,26 @@ class CBRSTMFramework:
         if not sensor_cols:
             return self.state_space.states[0]  # Default to first state
         
-        # Calculate aggregate health score
+        # Calculate aggregate health score, handling NaN values
         sensor_values = sensor_data[sensor_cols].values
-        health_score = np.mean(sensor_values)  # Simplified aggregation
+        # Remove NaN values and handle empty array case
+        valid_values = sensor_values[~np.isnan(sensor_values)]
         
-        # Map to discrete states
+        if len(valid_values) == 0:
+            # If all values are NaN, default to middle state
+            health_score = 50.0
+        else:
+            health_score = np.mean(valid_values)  # Use mean of valid values
+        
+        # Ensure health_score is a valid number
+        if np.isnan(health_score) or np.isinf(health_score):
+            health_score = 50.0  # Default to middle range
+        
+        # Map to discrete states with bounds checking
         num_states = len(self.state_space.states)
-        state_idx = min(int(health_score / 100 * num_states), num_states - 1)
+        # Normalize health score to [0, 1] range, assuming sensor values are roughly in 0-100 range
+        normalized_score = max(0.0, min(1.0, abs(health_score) / 100.0))
+        state_idx = min(int(normalized_score * num_states), num_states - 1)
         
         return self.state_space.states[state_idx]
     
