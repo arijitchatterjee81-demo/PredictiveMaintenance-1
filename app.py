@@ -70,20 +70,97 @@ w4 = st.sidebar.slider("w₄ (Urgency Factor)", 0.0, 1.0, st.session_state.weigh
 
 st.session_state.weights = [w1, w2, w3, w4]
 
-# AHP Calibration
-if st.sidebar.button("Use AHP Calibration"):
-    ahp_calibrator = AHPCalibrator()
-    st.session_state.weights = ahp_calibrator.get_default_weights()
-    st.sidebar.success("Applied AHP-calibrated weights")
-    st.rerun()
+# Weight Calibration Options
+calibration_method = st.sidebar.selectbox(
+    "Calibration Method",
+    ["Manual", "AHP Expert Pairwise", "IRL from Demonstrations"]
+)
+
+if calibration_method == "AHP Expert Pairwise":
+    if st.sidebar.button("Use AHP Calibration"):
+        ahp_calibrator = AHPCalibrator()
+        st.session_state.weights = ahp_calibrator.get_default_weights()
+        st.sidebar.success("Applied AHP-calibrated weights")
+        st.rerun()
+
+elif calibration_method == "IRL from Demonstrations":
+    # IRL Calibration
+    st.sidebar.subheader("IRL Configuration")
+    
+    demo_source = st.sidebar.radio(
+        "Demonstration Source",
+        ["Generate Synthetic", "Upload Expert Data"]
+    )
+    
+    if demo_source == "Generate Synthetic":
+        num_demos = st.sidebar.slider("Number of Demonstrations", 10, 100, 20)
+        if st.sidebar.button("Calibrate with IRL"):
+            if st.session_state.framework is not None:
+                with st.spinner("Running IRL calibration..."):
+                    from utils.inverse_reinforcement_learning import IRLCalibrator
+                    irl_calibrator = IRLCalibrator(st.session_state.framework)
+                    
+                    # Generate synthetic demonstrations
+                    demonstrations = irl_calibrator.generate_synthetic_demonstrations(num_demos)
+                    
+                    # Perform IRL calibration
+                    result = irl_calibrator.calibrate_from_demonstrations(demonstrations)
+                    
+                    # Update weights
+                    st.session_state.weights = result['weights'].tolist()
+                    st.session_state.irl_result = result
+                    
+                    st.sidebar.success(f"IRL calibration completed!")
+                    st.sidebar.write(f"Action Accuracy: {result['metrics']['action_accuracy']:.2%}")
+                    st.rerun()
+            else:
+                st.sidebar.warning("Please initialize framework first in the Configuration tab")
+    
+    else:
+        uploaded_file = st.sidebar.file_uploader(
+            "Upload Expert Demonstrations",
+            type=['csv'],
+            help="CSV file with columns: trajectory_id, step, state, action, next_state, total_cost"
+        )
+        
+        if uploaded_file is not None:
+            if st.sidebar.button("Calibrate with Expert Data"):
+                if st.session_state.framework is not None:
+                    with st.spinner("Processing expert data and running IRL..."):
+                        import pandas as pd
+                        from utils.inverse_reinforcement_learning import IRLCalibrator
+                        
+                        # Load expert data
+                        expert_data = pd.read_csv(uploaded_file)
+                        
+                        # Initialize IRL calibrator
+                        irl_calibrator = IRLCalibrator(st.session_state.framework)
+                        
+                        # Parse demonstrations
+                        demonstrations = irl_calibrator.parse_expert_data(expert_data)
+                        
+                        # Perform calibration
+                        result = irl_calibrator.calibrate_from_demonstrations(demonstrations)
+                        
+                        # Update weights
+                        st.session_state.weights = result['weights'].tolist()
+                        st.session_state.irl_result = result
+                        
+                        st.sidebar.success(f"IRL calibration completed!")
+                        st.sidebar.write(f"Processed {len(demonstrations)} demonstrations")
+                        st.sidebar.write(f"Action Accuracy: {result['metrics']['action_accuracy']:.2%}")
+                        st.rerun()
+                else:
+                    st.sidebar.warning("Please initialize framework first in the Configuration tab")
 
 # Main content area with tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Dataset Overview", 
     "Framework Configuration", 
     "Case Retrieval & Analysis", 
     "State Navigation", 
-    "Sensitivity Analysis"
+    "Sensitivity Analysis",
+    "IRL Calibration Results"
 ])
 
 with tab1:
@@ -379,6 +456,149 @@ with tab5:
                     st.info(rec)
     else:
         st.warning("Please execute the state navigation algorithm first to generate a solution path.")
+
+with tab6:
+    st.header("IRL Calibration Results")
+    
+    if 'irl_result' in st.session_state and st.session_state.irl_result is not None:
+        irl_result = st.session_state.irl_result
+        
+        # Display learned weights
+        st.subheader("Learned Weights from IRL")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        weights = irl_result['weights']
+        with col1:
+            st.metric("w₁ (Maintenance)", f"{weights[0]:.3f}")
+        with col2:
+            st.metric("w₂ (Downtime)", f"{weights[1]:.3f}")
+        with col3:
+            st.metric("w₃ (Reliability)", f"{weights[2]:.3f}")
+        with col4:
+            st.metric("w₄ (Urgency)", f"{weights[3]:.3f}")
+        
+        # Weights comparison chart
+        st.subheader("Weight Comparison")
+        
+        comparison_data = pd.DataFrame({
+            'Component': ['Maintenance Cost', 'Downtime Cost', 'Reliability Improvement', 'Urgency Factor'],
+            'IRL Learned': weights,
+            'Current Manual': st.session_state.weights
+        })
+        
+        fig = px.bar(
+            comparison_data.melt(id_vars=['Component'], var_name='Source', value_name='Weight'),
+            x='Component',
+            y='Weight',
+            color='Source',
+            barmode='group',
+            title='IRL vs Manual Weight Configuration'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Performance metrics
+        st.subheader("IRL Calibration Metrics")
+        metrics = irl_result['metrics']
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Action Prediction Accuracy", f"{metrics['action_accuracy']:.1%}")
+        with col2:
+            st.metric("Log-Likelihood", f"{metrics['log_likelihood']:.2f}")
+        with col3:
+            st.metric("Total Demonstrations", f"{metrics['total_demonstrations']}")
+        
+        # Optimization details
+        if 'optimization_result' in irl_result:
+            opt_result = irl_result['optimization_result']
+            st.subheader("Optimization Details")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Convergence", "✅ Success" if opt_result['success'] else "❌ Failed")
+            with col2:
+                st.metric("Iterations", opt_result['iterations'])
+            with col3:
+                st.metric("Final Gradient Norm", f"{opt_result.get('gradient_norm', 0):.6f}")
+        
+        # Weight entropy and interpretability
+        st.subheader("Weight Analysis")
+        
+        weight_entropy = metrics.get('weight_entropy', 0)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Weight Entropy", f"{weight_entropy:.3f}", 
+                     help="Lower entropy indicates more decisive weight allocation")
+        
+        with col2:
+            # Most influential component
+            max_weight_idx = np.argmax(weights)
+            components = ['Maintenance Cost', 'Downtime Cost', 'Reliability Improvement', 'Urgency Factor']
+            st.metric("Most Influential Component", components[max_weight_idx])
+        
+        # Expert demonstration summary
+        st.subheader("Demonstration Analysis")
+        
+        total_steps = metrics.get('total_steps', 0)
+        avg_demo_length = total_steps / max(metrics['total_demonstrations'], 1)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Decision Steps", total_steps)
+        with col2:
+            st.metric("Average Demonstration Length", f"{avg_demo_length:.1f} steps")
+        
+        # Recommendations based on IRL results
+        st.subheader("IRL-Based Recommendations")
+        
+        recommendations = []
+        
+        if metrics['action_accuracy'] > 0.8:
+            recommendations.append("✅ High action prediction accuracy suggests good weight calibration")
+        elif metrics['action_accuracy'] > 0.6:
+            recommendations.append("⚠️ Moderate action accuracy - consider more demonstrations or parameter tuning")
+        else:
+            recommendations.append("❌ Low action accuracy - review demonstration quality or try different optimization parameters")
+        
+        if weight_entropy < 0.5:
+            recommendations.append("📊 Low weight entropy indicates clear preferences in expert demonstrations")
+        elif weight_entropy > 1.0:
+            recommendations.append("🔄 High weight entropy suggests uncertain or conflicting expert preferences")
+        
+        if weights[2] > 0.4:  # Reliability improvement weight
+            recommendations.append("🔧 High reliability focus detected - framework prioritizes long-term equipment health")
+        
+        if weights[3] > 0.3:  # Urgency factor weight
+            recommendations.append("⚡ High urgency sensitivity - framework responds strongly to critical situations")
+        
+        for rec in recommendations:
+            st.info(rec)
+            
+        # Option to apply IRL weights
+        if st.button("Apply IRL-Calibrated Weights"):
+            st.session_state.weights = weights.tolist()
+            st.success("Applied IRL-calibrated weights to the framework!")
+            st.rerun()
+    
+    else:
+        st.info("No IRL calibration results available. Use the IRL calibration feature in the sidebar to generate results.")
+        
+        # Show example expert data format
+        st.subheader("Expert Demonstration Data Format")
+        st.markdown("To use IRL calibration with your own expert data, upload a CSV file with the following columns:")
+        
+        example_data = pd.DataFrame({
+            'trajectory_id': ['demo_1', 'demo_1', 'demo_1', 'demo_2', 'demo_2'],
+            'step': [1, 2, 3, 1, 2],
+            'state': ['Health_Level_3', 'Health_Level_2', 'Health_Level_1', 'Health_Level_4', 'Health_Level_2'],
+            'action': ['Preventive_Maintenance', 'Condition_Monitoring', 'Component_Replacement', 'Corrective_Maintenance', 'Preventive_Maintenance'],
+            'next_state': ['Health_Level_2', 'Health_Level_1', 'Health_Level_1', 'Health_Level_2', 'Health_Level_1'],
+            'total_cost': [150.0, 75.0, 200.0, 180.0, 120.0]
+        })
+        
+        st.dataframe(example_data)
+        st.caption("Example expert demonstration data format")
 
 # Footer
 st.markdown("---")

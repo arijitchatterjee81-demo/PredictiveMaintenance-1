@@ -285,3 +285,44 @@ class MultiObjectiveHeuristic:
             'sensitivities': sensitivities,
             'most_sensitive': max(sensitivities.keys(), key=lambda k: abs(sensitivities[k]))
         }
+    
+    def get_components(self, state: str, action: str) -> Dict[str, float]:
+        """
+        Get individual heuristic components for IRL feature extraction.
+        
+        Args:
+            state: Current state
+            action: Action to evaluate
+            
+        Returns:
+            Dictionary with individual component values
+        """
+        return {
+            'maintenance_cost': self._calculate_maintenance_cost(action),
+            'downtime_cost': self._calculate_downtime_cost(state, action),
+            'reliability_improvement': self._calculate_reliability_improvement(state, action),
+            'urgency_factor': self._calculate_urgency_factor(state)
+        }
+    
+    def evaluate(self, state: str, action: str) -> float:
+        """
+        Alias for calculate method to maintain compatibility with IRL interface.
+        
+        Args:
+            state: Current state
+            action: Action to evaluate
+            
+        Returns:
+            Heuristic cost estimate
+        """
+        return self.calculate(state, action)
+    
+    @property
+    def weights(self) -> List[float]:
+        """Get current weights as list."""
+        return [self.w1, self.w2, self.w3, self.w4]
+    
+    @weights.setter
+    def weights(self, new_weights: List[float]):
+        """Set new weights."""
+        self.update_weights(new_weights)
