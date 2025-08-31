@@ -1,6 +1,8 @@
 # streamlit_app.py
 import streamlit as st
 import traceback
+import os
+os.environ["STREAMLIT_WATCHDOG_DISABLED"] = "true"
 
 # Helper to safely import modules
 def safe_import(module_name, attr=None):
