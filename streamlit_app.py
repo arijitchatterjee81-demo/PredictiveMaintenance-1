@@ -1,10 +1,9 @@
 # streamlit_app.py
+import os
+os.environ["STREAMLIT_WATCHDOG_DISABLED"] = "true"  # Must be before streamlit import
+
 import streamlit as st
 import traceback
-import os
-
-# Disable inotify/watchdog to prevent inotify instance limit errors
-os.environ["STREAMLIT_WATCHDOG_DISABLED"] = "true"
 
 # -----------------------------
 # Helper to safely import modules
@@ -26,7 +25,7 @@ if 'import_status' not in st.session_state:
     st.session_state['import_status'] = {}
 
 # -----------------------------
-# Import core modules safely
+# Safe imports
 # -----------------------------
 CBRSTMFramework = safe_import('core.cbr_stm_framework', 'CBRSTMFramework')
 StateSpace = safe_import('core.state_space', 'StateSpace')
@@ -57,33 +56,30 @@ for module, status in st.session_state['import_status'].items():
     st.write(f"{module}: {status}")
 
 # -----------------------------
-# Dataset loading (cached)
+# Lazy-load NASA dataset
 # -----------------------------
-@st.cache_data
-def load_dataset():
+@st.cache_data(show_spinner=True)
+def load_nasa_dataset():
     if NASACMAPSSLoader:
         try:
             loader = NASACMAPSSLoader()
-            dataset = loader.load_dataset("FD001")
-            return dataset
+            return loader.load_dataset("FD001")
         except Exception as e:
             st.error("❌ Dataset loading failed")
             st.text(traceback.format_exc())
     return None
 
-dataset = load_dataset()
-if dataset:
-    st.success(f"✅ NASA C-MAPSS FD001 dataset loaded with {len(dataset['train'])} training samples")
+dataset = load_nasa_dataset()
 
 # -----------------------------
 # Multi-tab interface
 # -----------------------------
 try:
     tabs = st.tabs([
-        "Dataset Overview", 
-        "Framework Configuration", 
-        "Case Retrieval & Analysis", 
-        "State Navigation", 
+        "Dataset Overview",
+        "Framework Configuration",
+        "Case Retrieval & Analysis",
+        "State Navigation",
         "Sensitivity Analysis",
         "IRL Calibration Results",
         "Demo & Validation"
@@ -95,12 +91,8 @@ try:
     with tabs[0]:
         st.header("Dataset Overview")
         if dataset:
-            try:
-                st.write("**Training Samples:**", len(dataset['train']))
-                st.write("**Test Samples:**", len(dataset['test']))
-            except Exception as e:
-                st.error("❌ Failed to display dataset")
-                st.text(traceback.format_exc())
+            st.write("**Training Samples:**", len(dataset['train']))
+            st.write("**Test Samples:**", len(dataset['test']))
         else:
             st.info("Dataset not loaded. Check import status above.")
 
@@ -166,13 +158,4 @@ try:
 
 except Exception as e:
     st.error("❌ Tab rendering failed")
-    st.text(traceback.format_exc())
-
-# -----------------------------
-# Global error handling (optional)
-# -----------------------------
-try:
-    pass
-except Exception as e:
-    st.error("❌ Unexpected error occurred")
     st.text(traceback.format_exc())
