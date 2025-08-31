@@ -2,9 +2,13 @@
 import streamlit as st
 import traceback
 import os
+
+# Disable inotify/watchdog to prevent inotify instance limit errors
 os.environ["STREAMLIT_WATCHDOG_DISABLED"] = "true"
 
+# -----------------------------
 # Helper to safely import modules
+# -----------------------------
 def safe_import(module_name, attr=None):
     try:
         module = __import__(module_name, fromlist=['*'])
@@ -15,11 +19,15 @@ def safe_import(module_name, attr=None):
         st.session_state['import_status'][f"{module_name}{'.'+attr if attr else ''}"] = f"❌ Failed: {e}"
         return None
 
+# -----------------------------
 # Initialize import status
+# -----------------------------
 if 'import_status' not in st.session_state:
     st.session_state['import_status'] = {}
 
+# -----------------------------
 # Import core modules safely
+# -----------------------------
 CBRSTMFramework = safe_import('core.cbr_stm_framework', 'CBRSTMFramework')
 StateSpace = safe_import('core.state_space', 'StateSpace')
 MultiObjectiveHeuristic = safe_import('core.heuristic', 'MultiObjectiveHeuristic')
@@ -29,7 +37,9 @@ SensitivityAnalyzer = safe_import('utils.sensitivity_analysis', 'SensitivityAnal
 ModernMethodsComparator = safe_import('utils.modern_methods_comparison', 'ModernMethodsComparator')
 VisualizationComponents = safe_import('visualization.components', 'VisualizationComponents')
 
+# -----------------------------
 # Streamlit page config
+# -----------------------------
 st.set_page_config(
     page_title="CBR+STM Predictive Maintenance Framework",
     page_icon="🔧",
@@ -39,23 +49,35 @@ st.set_page_config(
 st.title("🔧 CBR+STM Predictive Maintenance Framework")
 st.markdown("This app demonstrates the CBR+STM predictive maintenance framework with multi-tab interface.")
 
+# -----------------------------
 # Show import results
+# -----------------------------
 st.subheader("Module Import Status")
 for module, status in st.session_state['import_status'].items():
     st.write(f"{module}: {status}")
 
-# Attempt minimal dataset load
-dataset = None
-if NASACMAPSSLoader:
-    try:
-        loader = NASACMAPSSLoader()
-        dataset = loader.load_dataset("FD001")
-        st.success(f"✅ NASA C-MAPSS FD001 dataset loaded with {len(dataset['train'])} training samples")
-    except Exception as e:
-        st.error("❌ Dataset loading failed")
-        st.text(traceback.format_exc())
+# -----------------------------
+# Dataset loading (cached)
+# -----------------------------
+@st.cache_data
+def load_dataset():
+    if NASACMAPSSLoader:
+        try:
+            loader = NASACMAPSSLoader()
+            dataset = loader.load_dataset("FD001")
+            return dataset
+        except Exception as e:
+            st.error("❌ Dataset loading failed")
+            st.text(traceback.format_exc())
+    return None
 
+dataset = load_dataset()
+if dataset:
+    st.success(f"✅ NASA C-MAPSS FD001 dataset loaded with {len(dataset['train'])} training samples")
+
+# -----------------------------
 # Multi-tab interface
+# -----------------------------
 try:
     tabs = st.tabs([
         "Dataset Overview", 
@@ -67,7 +89,9 @@ try:
         "Demo & Validation"
     ])
 
+    # -----------------------------
     # Dataset Overview
+    # -----------------------------
     with tabs[0]:
         st.header("Dataset Overview")
         if dataset:
@@ -80,7 +104,9 @@ try:
         else:
             st.info("Dataset not loaded. Check import status above.")
 
+    # -----------------------------
     # Framework Configuration
+    # -----------------------------
     with tabs[1]:
         st.header("Framework Configuration")
         if CBRSTMFramework and StateSpace and MultiObjectiveHeuristic:
@@ -88,7 +114,9 @@ try:
         else:
             st.warning("Framework modules missing. Cannot configure.")
 
+    # -----------------------------
     # Case Retrieval & Analysis
+    # -----------------------------
     with tabs[2]:
         st.header("Case Retrieval & Analysis")
         if CBRSTMFramework:
@@ -96,7 +124,9 @@ try:
         else:
             st.warning("CBRSTMFramework not loaded.")
 
+    # -----------------------------
     # State Navigation
+    # -----------------------------
     with tabs[3]:
         st.header("State Navigation")
         if StateSpace:
@@ -104,7 +134,9 @@ try:
         else:
             st.warning("StateSpace module not loaded.")
 
+    # -----------------------------
     # Sensitivity Analysis
+    # -----------------------------
     with tabs[4]:
         st.header("Sensitivity Analysis")
         if SensitivityAnalyzer:
@@ -112,7 +144,9 @@ try:
         else:
             st.warning("SensitivityAnalyzer module not loaded.")
 
+    # -----------------------------
     # IRL Calibration Results
+    # -----------------------------
     with tabs[5]:
         st.header("IRL Calibration Results")
         if AHPCalibrator:
@@ -120,7 +154,9 @@ try:
         else:
             st.warning("AHPCalibrator module not loaded.")
 
+    # -----------------------------
     # Demo & Validation
+    # -----------------------------
     with tabs[6]:
         st.header("Demo & Validation")
         if ModernMethodsComparator and VisualizationComponents:
@@ -132,7 +168,9 @@ except Exception as e:
     st.error("❌ Tab rendering failed")
     st.text(traceback.format_exc())
 
-# Global error handling
+# -----------------------------
+# Global error handling (optional)
+# -----------------------------
 try:
     pass
 except Exception as e:
